@@ -28,14 +28,16 @@ class Project():
 
     datasets = []
 
-    def __init__(self, project_id=None, export_schema=False, include_routines=False, regex_pattern=None):
+    def __init__(self, project_id=None, export_schema=False, include_routines=False,
+                 regex_pattern=None, changed_since_days=None):
         self.client = bigquery.Client(project_id)
         self.project_id = self.client.project
         self.regex_pattern = regex_pattern
 
         print(f'Loading project {self.project_id}...')
         self.datasets = list(
-            map(partial(Dataset, self, export_schema, include_routines),
+            map(partial(Dataset, self, export_schema, include_routines,
+                        changed_since_days=changed_since_days),
                 filter(self.matches_regex, self.client.list_datasets())))
 
     def matches_regex(self, dataset):

@@ -11,10 +11,12 @@ class Routine:
     """
     routine_query = ''
     is_function = False
+    modified = None
 
     def __init__(self, dataset, bq_routine):
         self.dataset = dataset
         routine = dataset.project.client.get_routine(bq_routine.reference)
+        self.modified = getattr(routine, 'modified', None)
         self.is_function = routine.type_ == 'SCALAR_FUNCTION'
         self.routine_type = 'function' if self.is_function else 'procedure'
         self.routine_id = routine.routine_id
