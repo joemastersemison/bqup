@@ -37,7 +37,7 @@ python3 setup.py install
 You can list down the options by running `bqup --help`.
 
 ```text
-bqup [-p PROJECT_ID] [-d TARGET_DIR] [-fvxr] [-e REGEX]
+bqup [-p PROJECT_ID] [-d TARGET_DIR] [-fvxr] [-e REGEX] [-c DAYS]
 
 Options:
   -p PROJECT_ID, --project PROJECT_ID  Project ID to load. If unspecified,
@@ -51,7 +51,26 @@ Options:
   -x --schema                          Export table schemata as json.
   -r --routine                         Include routines in export.
   -e REGEX, --regex REGEX              Regex pattern to filter datasets to be exported.
+  -c DAYS, --changed-since DAYS        Only back up views/tables/routines
+                                       modified within the past DAYS days.
+                                       Datasets with no matching objects are
+                                       skipped entirely.
 ```
+
+#### Backing up only recently changed objects
+
+By default `bqup` backs up every view, table, and routine definition. Pass
+`--changed-since DAYS` (or `-c DAYS`) to limit the backup to objects whose
+last-modified time falls within the past `DAYS` days:
+
+```
+bqup --changed-since 7
+```
+
+Objects are selected by BigQuery's last-modified timestamp. Note that for
+plain tables this timestamp is also bumped by data changes (not only
+definition changes), and objects with no available modified time are left
+out of a filtered backup.
 
 ### Development
 

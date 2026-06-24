@@ -2,6 +2,7 @@ import os
 from functools import partial
 from bqup.table import Table
 from bqup.routine import Routine
+from bqup.changes import filter_changed
 
 
 class Dataset():
@@ -23,8 +24,10 @@ class Dataset():
     """
 
     tables = []
+    routines = []
 
-    def __init__(self, project, export_schema, include_routines, bq_dataset):
+    def __init__(self, project, export_schema, include_routines, bq_dataset,
+                 changed_since_days=None, now=None):
         """ Creates a Datasets class
 
         Parameters
@@ -47,7 +50,7 @@ class Dataset():
         # To support multiple version of google-cloud-bigquery
         if hasattr(project.client, 'list_dataset_tables'):
             self.tables = list(
-                map(partial(Table, self, export_schema),
+                map(partial(Table, self, export_schema, changed_since_days=changed_since_days),
                     project.client.list_dataset_tables(bq_dataset)))
         else:
 
@@ -59,8 +62,12 @@ class Dataset():
                 self.routines = []
 
             self.tables = list(
-                map(partial(Table, self, export_schema),
+                map(partial(Table, self, export_schema, changed_since_days=changed_since_days),
                     project.client.list_tables(bq_dataset.reference)))
+
+        # Restrict to objects modified within the requested window (if any).
+        self.tables = filter_changed(self.tables, changed_since_days, now=now)
+        self.routines = filter_changed(self.routines, changed_since_days, now=now)
 
     def print_info(self):
         """ Print all the tables of a dataset"""
@@ -80,6 +87,11 @@ class Dataset():
             Path to the project directory where schema will be saved
 
         """
+        # Nothing matched the changed-since window for this dataset; skip it
+        # so the backup doesn't contain empty dataset directories.
+        if not self.tables and not self.routines:
+            return
+
         dataset_dir = f"{project_dir}/{self.dataset_id}"
         os.makedirs(dataset_dir)
         for t in self.tables:

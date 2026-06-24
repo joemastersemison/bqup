@@ -25,8 +25,9 @@ class Table:
     """
     view_query = ''
     schema = []
+    modified = None
 
-    def __init__(self, dataset, export_schema, bq_table):
+    def __init__(self, dataset, export_schema, bq_table, changed_since_days=None):
         self.dataset = dataset
         self.table_id = bq_table.table_id
         self.table_type = bq_table.table_type
@@ -34,25 +35,36 @@ class Table:
         self.export_schema = export_schema
         dataset.tables.append(self)
 
+        # When restricting to recently changed objects we always need the
+        # full table to read its last-modified time, even for plain tables
+        # that would otherwise skip the extra fetch.
+        filtering = changed_since_days is not None
+
         # To support multiple versions of google-cloud-bigquery
         ref = bq_table if hasattr(bq_table, 'path') else bq_table.reference
 
         if self.table_type == 'VIEW':
             table = get_table_with_retry(dataset.project.client, ref)
+            self.modified = table.modified
             self.view_query = f'CREATE OR REPLACE VIEW {self.dataset.dataset_id}.{self.table_id} AS\n{table.view_query}'
         elif self.table_type == 'TABLE':
-            if export_schema:
+            if export_schema or filtering:
                 table = get_table_with_retry(dataset.project.client, ref)
-                self.schema = list(map(lambda x: x.to_api_repr(), table.schema))
+                self.modified = table.modified
+                if export_schema:
+                    self.schema = list(map(lambda x: x.to_api_repr(), table.schema))
         elif self.table_type == 'EXTERNAL':
-            if export_schema:
+            if export_schema or filtering:
                 table = get_table_with_retry(dataset.project.client, ref)
-                self.schema = list(map(lambda x: x.to_api_repr(), table.schema))
+                self.modified = table.modified
+                if export_schema:
+                    self.schema = list(map(lambda x: x.to_api_repr(), table.schema))
         elif self.table_type == 'MODEL':
             print('\t\t\tMODEL table type detected, ignoring.')
             pass
         elif self.table_type == 'MATERIALIZED_VIEW':
             table = get_table_with_retry(dataset.project.client, ref)
+            self.modified = table.modified
             self.view_query = f'CREATE MATERIALIZED VIEW IF NOT EXISTS {self.dataset.dataset_id}.{self.table_id} AS\n{table.mview_query}'
         else:
             raise ValueError(f'Unrecognized table type: {self.table_type}')

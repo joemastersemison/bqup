@@ -1,7 +1,7 @@
 """bqup - backing up your BigQuery non-data
 
 Usage:
-  bqup [-p PROJECT_ID] [-d TARGET_DIR] [-fvxr] [-e REGEX]
+  bqup [-p PROJECT_ID] [-d TARGET_DIR] [-fvxr] [-e REGEX] [-c DAYS]
 
 Options:
   -p PROJECT_ID, --project PROJECT_ID  Project ID to load. If unspecified, defaults to current project in configuration.
@@ -11,10 +11,12 @@ Options:
   -x --schema                          Export table schemata as json.
   -r --routine                         Include routines in export.
   -e REGEX, --regex REGEX              Regex pattern to filter datasets to be exported.
+  -c DAYS, --changed-since DAYS        Only back up views/tables/routines modified within the past DAYS days.
 """
 import os
 from datetime import datetime
 from docopt import docopt
+from bqup.changes import parse_changed_since
 from bqup.project import Project
 
 
@@ -28,9 +30,13 @@ def main():
         print("Target directory already exists. Consider running with -f.")
         exit()
 
+    changed_since_days = parse_changed_since(args['--changed-since'])
+
     project_id = args['--project']
     print(f"Loading {project_id or 'default project'}...")
-    p = Project(project_id or None, args['--schema'], args['--routine'], args['--regex'])
+    if changed_since_days is not None:
+        print(f"Restricting backup to objects modified within the past {changed_since_days} day(s).")
+    p = Project(project_id or None, args['--schema'], args['--routine'], args['--regex'], changed_since_days)
 
     if args['--verbose']:
         p.print_info()
