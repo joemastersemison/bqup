@@ -87,6 +87,25 @@ def test_dataset_drops_objects_outside_window():
     assert [t.table_id for t in ds.tables] == ["recent"]
 
 
+def test_summary_reports_kept_and_skipped(capsys):
+    items = [FakeBQTable("recent", "VIEW"), FakeBQTable("stale", "VIEW")]
+    full = {
+        "recent": FakeFullTable(NOW - timedelta(days=1), view_query="SELECT 1"),
+        "stale": FakeFullTable(NOW - timedelta(days=100), view_query="SELECT 2"),
+    }
+    _build_dataset(items, full, changed_since_days=7)
+    out = capsys.readouterr().out
+    assert "Kept 1 of 2 object(s) modified in the last 7 day(s) (skipped 1 unchanged)." in out
+
+
+def test_no_summary_when_not_filtering(capsys):
+    items = [FakeBQTable("v1", "VIEW")]
+    full = {"v1": FakeFullTable(NOW - timedelta(days=1), view_query="SELECT 1")}
+    _build_dataset(items, full, changed_since_days=None)
+    out = capsys.readouterr().out
+    assert "Kept" not in out
+
+
 def test_export_skips_dataset_with_no_changed_objects(tmp_path):
     items = [FakeBQTable("stale", "VIEW")]
     full = {"stale": FakeFullTable(NOW - timedelta(days=100), view_query="SELECT 2")}

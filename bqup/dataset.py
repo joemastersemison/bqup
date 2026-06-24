@@ -66,8 +66,20 @@ class Dataset():
                     project.client.list_tables(bq_dataset.reference)))
 
         # Restrict to objects modified within the requested window (if any).
+        # Capture the pre-filter counts so we can report what was skipped --
+        # every object is fetched to read its modified time, so the "Loading"
+        # lines above include objects that are about to be discarded.
+        table_total = len(self.tables)
+        routine_total = len(self.routines)
         self.tables = filter_changed(self.tables, changed_since_days, now=now)
         self.routines = filter_changed(self.routines, changed_since_days, now=now)
+
+        if changed_since_days is not None:
+            total = table_total + routine_total
+            kept = len(self.tables) + len(self.routines)
+            print(
+                f'\t\tKept {kept} of {total} object(s) modified in the last '
+                f'{changed_since_days} day(s) (skipped {total - kept} unchanged).')
 
     def print_info(self):
         """ Print all the tables of a dataset"""
